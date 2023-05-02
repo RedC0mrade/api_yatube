@@ -5,13 +5,15 @@ from rest_framework.authtoken import views
 
 from .views import CommentViewSet, GroupViewSet, PostViewSet
 
+app_name = 'api'
+
 router = routers.DefaultRouter()
-router.register(r'posts', PostViewSet)
-router.register(r'groups', GroupViewSet)
-router.register(r'comment', CommentViewSet)
+router.register('posts', PostViewSet, basename='posts')
+router.register('groups', GroupViewSet, basename='Groups')
+router.register('posts/<int:pk>/comments', CommentViewSet, basename='comments')
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/v1/api-token-auth/', views.obtain_auth_token),
+    path('v1/api-token-auth/', views.obtain_auth_token),
 ]

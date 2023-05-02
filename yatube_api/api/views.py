@@ -1,79 +1,51 @@
-from django.shortcuts import get_object_or_404
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
-from ..posts.models import Comment, Group, Post
+from rest_framework import viewsets
+from rest_framework.exceptions import PermissionDenied
+
+from posts.models import Comment, Group, Post
 from .serializers import CommentSerializer, GroupSerializer, PostSerializer
 
 
-@api_view(['GET', 'POST'])
-def api_posts(request):
-    if request.method == 'POST':
-        serializer = PostSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(author=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class PostViewSet(viewsets.ModelViewSet):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
 
-    posts = Post.objects.all()
-    serializer = PostSerializer(posts, many=True)
-    return Response(serializer.data)
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
+    def perform_update(self, serializer):
+        if serializer.instance.author != self.request.user:
+            raise PermissionDenied('Изменение чужого контента запрещено!')
+        super(PostViewSet, self).perform_update(serializer)
 
-@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-def api_posts_detail(request, pk):
-    post = get_object_or_404(Post, id=pk)
-
-    if request.method == 'GET':
-        serializer = PostSerializer(post)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    if request.user != post.author:
-        return Response(status=status.HTTP_403_FORBIDDEN)
-
-    if request.method == 'PUT' or request.method == 'PATCH':
-        serializer = PostSerializer(post, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'DELETE':
-        post.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied('Удалние чужого поста запрещено!')
+        super(PostViewSet, self).perform_destroy(instance)
 
 
-@api_view(['GET'])
-def api_groups(request):
-
-    groups = Group.objects.all()
-    serializer = GroupSerializer(groups, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+class GroupViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
 
 
-@api_view(['GET'])
-def api_groups_detail(request, pk):
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
 
-    group = get_object_or_404(Group, id=pk)
-    serializer = GroupSerializer(group)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        post_id = self.kwargs.get("cat_id")
+        new_queryset = Comment.objects.filter(pk=post_id)
+        return new_queryset
 
+    def perform_create(self, serializer):
+        post_id = self.kwargs.get('pk')
+        serializer.save(author=self.request.user)
 
-@api_view(['GET', 'POST'])
-def api_comments(request, pk):
-    if request.method == 'POST':
-        serializer = CommentSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(author=request.user)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def perform_update(self, serializer):
+        if serializer.instance.author != self.request.user:
+            raise PermissionDenied('Изменение чужого комментария запрещено!')
+        super(CommentViewSet, self).perform_update(serializer)
 
-    comments = Comment.objects.all()
-    serializer = CommentSerializer(comments, many=True)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-def api_comments_details(request, pk, id):
-    post = get_object_or_404(Post, id=pk)
-
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied('Удалние чужого комментария запрещено!')
+        super(CommentViewSet, self).perform_destroy(instance)
