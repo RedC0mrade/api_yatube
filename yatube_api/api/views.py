@@ -32,13 +32,13 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
 
     def get_queryset(self):
-        post_id = self.kwargs.get("cat_id")
-        new_queryset = Comment.objects.filter(pk=post_id)
+        post_id = self.kwargs.get('post_id')
+        new_queryset = Comment.objects.filter(post=post_id)
         return new_queryset
 
     def perform_create(self, serializer):
-        post_id = self.kwargs.get('pk')
-        serializer.save(author=self.request.user)
+        post_id = self.kwargs.get('post_id')
+        serializer.save(author=self.request.user, post_id=post_id)
 
     def perform_update(self, serializer):
         if serializer.instance.author != self.request.user:
